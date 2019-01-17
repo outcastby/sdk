@@ -42,7 +42,7 @@ defmodule Sdk.BaseClient do
 
         cond do
           endpoint ->
-            url = if is_binary(endpoint.url), do: endpoint.url, else: endpoint.url.(payload["id"])
+            url = if is_binary(endpoint.url), do: endpoint.url, else: endpoint.url.(options.url_params)
             perform(endpoint.type, url, payload, headers, options)
 
           true ->
