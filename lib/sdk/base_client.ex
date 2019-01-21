@@ -90,7 +90,6 @@ defmodule Sdk.BaseClient do
 
       def gql(query) do
         Neuron.Config.set(url: config().base_url <> config().gql_path)
-        Neuron.Config.set(headers: [authorization: System.get_env("CHALLENGE_SERVER_TOKEN")])
         {:ok, %Neuron.Response{body: body}} = Neuron.query(query)
         {:ok, body["data"]}
       end
