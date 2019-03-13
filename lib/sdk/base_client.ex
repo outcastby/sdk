@@ -88,9 +88,9 @@ defmodule Sdk.BaseClient do
         end
       end
 
-      def gql(query) do
+      def gql(query, variables \\ nil) do
         Neuron.Config.set(url: config().base_url <> config().gql_path)
-        {:ok, %Neuron.Response{body: body}} = Neuron.query(query)
+        {:ok, %Neuron.Response{body: body}} = Neuron.query(query, variables)
         {:ok, body["data"]}
       end
 
