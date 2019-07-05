@@ -1,134 +1,163 @@
 defmodule Sdk.BaseClient do
+  use HTTPoison.Base
+  require IEx
+  require Logger
+
+  @timeout 20_000
+  @base_headers ["Content-Type": "application/json"]
+
   defmacro __using__(endpoints: endpoints) do
     quote bind_quoted: [endpoints: endpoints] do
-      use HTTPoison.Base
-      require IEx
-      require Logger
-
       endpoints
       |> Enum.each(fn event ->
-        def unquote(event)(x \\ nil) do
+        def unquote(event)(request \\ nil) do
           {method_name, _} = __ENV__.function
-          __MODULE__.method_missing(method_name, x)
+          __MODULE__.method_missing(method_name, request)
         end
       end)
 
       @doc """
       Base url preparing
       Feel free to override this behaviour like you wish
-      See example login_phoenix/lib/login_phoenix/core/sdk/shard/client.ex
       """
-      @spec prepare_url(url :: String.t()) :: String.t()
-      def prepare_url(url), do: config().base_url <> url
+      def prepare_url(url), do: Sdk.BaseClient.prepare_url(__MODULE__, url)
+
+      def method_missing(method_name, request),
+        do: Sdk.BaseClient.method_missing(__MODULE__, method_name, request)
 
       @doc """
-      Returns tuple of parametrs.
+      Returns tuple of parameters.
       """
-      @spec method_missing(method_name :: Atom, List.new(%Sdk.Request{})) :: %{}
-      def method_missing(method_name, %Sdk.Request{headers: headers, payload: payload, options: options}) do
-        call_missing(method_name, payload, headers, options)
-      end
+      def perform(method, url, payload \\ %{}, headers \\ [], options \\ %{}),
+        do: Sdk.BaseClient.perform(__MODULE__, method, url, payload, headers, options)
 
-      def method_missing(method_name, nil) do
-        call_missing(method_name, %{}, [], %{})
-      end
+      def gql(query, variables \\ nil), do: Sdk.BaseClient.gql(__MODULE__, query, variables)
 
-      @doc """
-      Returns tuple of parametrs.
-      """
-      @spec call_missing(method_name :: Atom, payload :: %{}, headers :: [], options :: %{}) :: %{}
-      def call_missing(method_name, payload, headers, options) do
-        endpoint = config().endpoints[method_name]
+      def handle_response(response, status),
+        do: Sdk.BaseClient.handle_response(response, status)
 
-        cond do
-          endpoint ->
-            url = if is_binary(endpoint.url), do: endpoint.url, else: endpoint.url.(options.url_params)
-            perform(endpoint.type, url, payload, headers, options)
+      def config, do: Sdk.BaseClient.config(__MODULE__)
 
-          true ->
-            handle_error("Endpoint for #{inspect(method_name)} is not found")
-        end
-      end
+      def name, do: Sdk.BaseClient.name(__MODULE__)
 
-      @doc """
-      Returns tuple of parametrs.
-      """
-      @spec perform(method :: String.t(), url :: String.t(), payload :: %{}, headers :: [], options :: %{}) :: %{}
-      def perform(method, url, payload \\ %{}, headers \\ [], options \\ %{}) do
-        headers = prepare_headers(headers)
+      def prepare_headers(headers), do: Sdk.BaseClient.prepare_headers(headers)
 
-        url =
-          case :erlang.function_exported(__MODULE__, :prepare_url, 2) do
-            true -> apply(__MODULE__, :prepare_url, [url, options])
-            _ -> apply(__MODULE__, :prepare_url, [url])
-          end
+      def prepare_payload(payload, headers),
+        do: Sdk.BaseClient.prepare_payload(payload, headers)
 
-        Logger.info(
-          "[#{name()}] [#{method}] #{process_url(url)} -> request: #{inspect(payload)}, headers: #{inspect(headers)}"
-        )
-
-        {status, resp} =
-          case method do
-            :post -> post(url, prepare_payload(payload, headers), headers, recv_timeout: 20000)
-            :put -> put(url, prepare_payload(payload, headers), headers, recv_timeout: 20000)
-            :get -> get(url, headers, params: payload, recv_timeout: 20000)
-          end
-
-        case status do
-          :error ->
-            handle_error("[#{name()}] [#{method}] #{process_url(url)} -> response: #{inspect(resp)}")
-
-          :ok ->
-            Logger.info("[#{name()}] [#{method}] #{process_url(url)} -> response: #{inspect(resp)}")
-
-            cond do
-              Enum.member?([4.0, 5.0], Float.floor(resp.status_code / 100)) -> handle_response(resp.body, :error)
-              true -> handle_response(resp.body, :ok)
-            end
-        end
-      end
-
-      def gql(query, variables \\ nil) do
-        Neuron.Config.set(url: config().base_url <> config().gql_path)
-        {:ok, %Neuron.Response{body: body}} = Neuron.query(query, variables)
-        {:ok, body["data"]}
-      end
-
-      def handle_response(response, status) do
-        try do
-          {status, response |> Poison.decode!()}
-        rescue
-          _ -> {status, response}
-        end
-      end
-
-      def handle_error(message) do
-        Logger.error(message)
-        {:error, message}
-      end
-
-      def config do
-        modules = __MODULE__ |> to_string |> String.split(".")
-        config_module_name = (Enum.drop(modules, -1) ++ ["Config"]) |> Enum.join(".")
-        String.to_existing_atom(config_module_name).data
-      end
-
-      def name, do: config().sdk_name
-
-      @spec prepare_headers(headers :: []) :: []
-      def prepare_headers(headers), do: ["Content-Type": "application/json"] ++ headers
-
-      @spec prepare_payload(payload :: %{}, headers :: []) :: %{} | String.t()
-      def prepare_payload(payload, headers) do
-        {_, content_type} = headers |> List.first()
-
-        cond do
-          content_type == "application/x-www-form-urlencoded" -> {:form, Enum.to_list(payload)}
-          true -> Poison.encode!(payload)
-        end
-      end
-
-      defoverridable prepare_headers: 1
+      defoverridable prepare_headers: 1, handle_response: 2
     end
   end
+
+  def prepare_url(module, url), do: config(module).base_url <> url
+
+  def method_missing(module, method_name, %Sdk.Request{
+        headers: headers,
+        payload: payload,
+        options: options
+      }),
+      do: call_missing(module, method_name, payload, headers, options)
+
+  def method_missing(module, method_name, nil),
+    do: call_missing(module, method_name, %{}, [], %{})
+
+  @doc """
+  Returns tuple of parameters.
+  """
+  def call_missing(module, method_name, payload, headers, options) do
+    %{endpoints: %{^method_name => %{url: url, type: type}}} = config(module)
+    url = if is_binary(url), do: url, else: url.(options.url_params)
+    perform(module, type, url, payload, headers, options)
+  end
+
+  def perform(module, method, url, payload, headers, options) do
+    headers = module.prepare_headers(headers)
+
+    url = apply(module, :prepare_url, get_url_params(module, url, options))
+
+    Logger.metadata(sdk: name(module), method: method, url: process_url(url))
+
+    Logger.info("request: #{inspect(payload)}, headers: #{inspect(headers)}")
+
+    case perform_request(method, url, payload, headers) do
+      {:error, resp} ->
+        handle_error("response: #{inspect(resp)}")
+
+      {:ok, %{body: body, status_code: status_code} = resp} ->
+        Logger.info("response: #{inspect(resp)}")
+
+        cond do
+          status_code >= 400 -> module.handle_response(body, :error)
+          true -> module.handle_response(body, :ok)
+        end
+    end
+  end
+
+  defp get_url_params(module, url, options) do
+    case :erlang.function_exported(module, :prepare_url, 2) do
+      true -> [url, options]
+      _ -> [url]
+    end
+  end
+
+  defp perform_request(:get, url, payload, headers),
+    do: __MODULE__.get(url, headers, params: payload, recv_timeout: @timeout, timeout: @timeout)
+
+  defp perform_request(method, url, payload, headers),
+    do:
+      apply(__MODULE__, method, [
+        url,
+        prepare_payload(payload, headers),
+        headers,
+        [recv_timeout: @timeout, timeout: @timeout]
+      ])
+
+  def gql(module, query, variables) do
+    url = config(module).base_url <> config(module).gql_path
+    Logger.metadata(sdk: name(module), url: url)
+
+    Neuron.Config.set(url: url)
+    Neuron.Config.set(connection_opts: [recv_timeout: @timeout, timeout: @timeout])
+
+    case Neuron.query(query, variables) do
+      {:error, resp} ->
+        handle_error("query: #{query}, response: #{inspect(resp)}")
+
+      {:ok, %Neuron.Response{body: body} = resp} ->
+        Logger.info("query: #{query}, response: #{inspect(resp)}")
+        {:ok, body["data"]}
+    end
+  end
+
+  def handle_response(response, status) do
+    try do
+      {status, response |> Poison.decode!()}
+    rescue
+      _ -> {status, response}
+    end
+  end
+
+  def handle_error(message, metadata \\ []) do
+    Logger.error(message, metadata)
+    {:error, message}
+  end
+
+  def config(module) do
+    modules = module |> to_string |> String.split(".")
+    config_module_name = (Enum.drop(modules, -1) ++ ["Config"]) |> Enum.join(".")
+    String.to_existing_atom(config_module_name).data
+  end
+
+  def name(module), do: config(module).sdk_name
+
+  def prepare_headers(headers) when is_map(headers),
+    do: headers |> Enum.into([]) |> prepare_headers()
+
+  def prepare_headers(headers), do: @base_headers ++ headers
+
+  def prepare_payload(payload, [{_, content_type} | _])
+      when content_type == "application/x-www-form-urlencoded",
+      do: {:form, Enum.to_list(payload)}
+
+  def prepare_payload(payload, _), do: Poison.encode!(payload)
 end

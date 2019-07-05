@@ -22,7 +22,8 @@ defmodule Sdk.MixProject do
   defp deps do
     [
       {:httpoison, "~> 1.4.0"},
-      {:poison, "~> 3.1"}
+      {:poison, "~> 3.1"},
+      {:neuron, "~> 1.0.0"},
     ]
   end
 end
