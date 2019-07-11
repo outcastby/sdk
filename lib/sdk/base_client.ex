@@ -145,7 +145,7 @@ defmodule Sdk.BaseClient do
   def config(module) do
     modules = module |> to_string |> String.split(".")
     config_module_name = (Enum.drop(modules, -1) ++ ["Config"]) |> Enum.join(".")
-    String.to_existing_atom(config_module_name).data
+    String.to_atom(config_module_name).data
   end
 
   def name(module), do: config(module).sdk_name
