@@ -79,7 +79,7 @@ defmodule Sdk.BaseClient do
 
     Logger.info("request: #{inspect(payload)}, headers: #{inspect(headers)}")
 
-    case perform_request(method, url, payload, headers) do
+    case perform_request(method, url, payload, headers, options) do
       {:error, resp} ->
         handle_error("response: #{inspect(resp)}")
 
@@ -100,17 +100,21 @@ defmodule Sdk.BaseClient do
     end
   end
 
-  defp perform_request(:get, url, payload, headers),
-    do: __MODULE__.get(url, headers, params: payload, recv_timeout: @timeout, timeout: @timeout)
+  defp perform_request(:get, url, payload, headers, options),
+    do:
+      __MODULE__.get(url, headers, %{params: payload} |> Map.merge(options) |> prepare_options())
 
-  defp perform_request(method, url, payload, headers),
+  defp perform_request(method, url, payload, headers, options),
     do:
       apply(__MODULE__, method, [
         url,
         prepare_payload(payload, headers),
         headers,
-        [recv_timeout: @timeout, timeout: @timeout]
+        prepare_options(options)
       ])
+
+  defp prepare_options(options),
+    do: %{recv_timeout: @timeout, timeout: @timeout} |> Map.merge(options) |> Enum.into([])
 
   def gql(module, query, variables) do
     url = config(module).base_url <> config(module).gql_path
