@@ -45,7 +45,7 @@ defmodule Sdk.BaseClient do
       def prepare_payload(payload, headers),
         do: Sdk.BaseClient.prepare_payload(payload, headers)
 
-      defoverridable prepare_headers: 1, handle_response: 2
+      defoverridable prepare_headers: 1, handle_response: 2, prepare_options: 1
     end
   end
 
