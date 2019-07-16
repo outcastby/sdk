@@ -41,6 +41,7 @@ defmodule Sdk.BaseClient do
       def name, do: Sdk.BaseClient.name(__MODULE__)
 
       def prepare_headers(headers), do: Sdk.BaseClient.prepare_headers(headers)
+      def prepare_options(options), do: Sdk.BaseClient.prepare_options(options)
 
       def prepare_payload(payload, headers),
         do: Sdk.BaseClient.prepare_payload(payload, headers)
