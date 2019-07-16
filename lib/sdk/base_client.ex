@@ -113,7 +113,7 @@ defmodule Sdk.BaseClient do
         prepare_options(options)
       ])
 
-  defp prepare_options(options),
+  def prepare_options(options),
     do: %{recv_timeout: @timeout, timeout: @timeout} |> Map.merge(options) |> Enum.into([])
 
   def gql(module, query, variables) do
