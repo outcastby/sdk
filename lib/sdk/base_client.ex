@@ -124,6 +124,9 @@ defmodule Sdk.BaseClient do
     Neuron.Config.set(connection_opts: [recv_timeout: @timeout, timeout: @timeout])
 
     case Neuron.query(query, variables) do
+      {:error, %Neuron.JSONParseError{response: {:error, %Neuron.Response{body: body}}}}->
+        handle_error("query: #{query}, response: #{body}")
+
       {:error, resp} ->
         handle_error("query: #{query}, response: #{inspect(resp)}")
 

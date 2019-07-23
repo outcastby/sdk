@@ -27,7 +27,7 @@ defmodule Sdk.MixProject do
     [
       {:httpoison, "~> 1.4.0"},
       {:poison, "~> 3.1"},
-      {:neuron, "~> 1.0.0"},
+      {:neuron, "~> 1.2.0"},
       {:mock, "0.3.3", only: :test}
     ]
   end
