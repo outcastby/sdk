@@ -73,8 +73,8 @@ defmodule Sdk.BaseClient do
 
   def perform(module, method, url, payload, headers, options) do
     headers = module.prepare_headers(headers)
-
     url = apply(module, :prepare_url, get_url_params(module, url, options))
+    options = module.prepare_options(options)
 
     Logger.metadata(sdk: name(module), method: method, url: process_url(url))
 
@@ -102,8 +102,7 @@ defmodule Sdk.BaseClient do
   end
 
   defp perform_request(:get, url, payload, headers, options),
-    do:
-      __MODULE__.get(url, headers, %{params: payload} |> Map.merge(options) |> prepare_options())
+    do: __MODULE__.get(url, headers, [params: payload] |> Keyword.merge(options))
 
   defp perform_request(method, url, payload, headers, options),
     do:
@@ -111,7 +110,7 @@ defmodule Sdk.BaseClient do
         url,
         prepare_payload(payload, headers),
         headers,
-        prepare_options(options)
+        options
       ])
 
   def prepare_options(options),
