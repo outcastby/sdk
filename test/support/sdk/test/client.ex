@@ -1,3 +1,3 @@
-defmodule Sdk.Test.Client do
-  use Sdk.BaseClient, endpoints: Map.keys(Sdk.Test.Config.data().endpoints)
+defmodule SDK.Test.Client do
+  use SDK.BaseClient, endpoints: Map.keys(SDK.Test.Config.data().endpoints)
 end

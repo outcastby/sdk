@@ -1,4 +1,4 @@
-defmodule Sdk.MixProject do
+defmodule SDK.MixProject do
   use Mix.Project
 
   def project do

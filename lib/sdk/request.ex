@@ -1,3 +1,3 @@
-defmodule Sdk.Request do
+defmodule SDK.Request do
   defstruct payload: %{}, headers: [], options: %{}
 end

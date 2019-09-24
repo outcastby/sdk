@@ -1,4 +1,4 @@
-defmodule Sdk.BaseClient do
+defmodule SDK.BaseClient do
   use HTTPoison.Base
   require IEx
   require Logger
@@ -20,31 +20,31 @@ defmodule Sdk.BaseClient do
       Base url preparing
       Feel free to override this behaviour like you wish
       """
-      def prepare_url(url), do: Sdk.BaseClient.prepare_url(__MODULE__, url)
+      def prepare_url(url), do: SDK.BaseClient.prepare_url(__MODULE__, url)
 
       def method_missing(method_name, request),
-        do: Sdk.BaseClient.method_missing(__MODULE__, method_name, request)
+        do: SDK.BaseClient.method_missing(__MODULE__, method_name, request)
 
       @doc """
       Returns tuple of parameters.
       """
       def perform(method, url, payload \\ %{}, headers \\ [], options \\ %{}),
-        do: Sdk.BaseClient.perform(__MODULE__, method, url, payload, headers, options)
+        do: SDK.BaseClient.perform(__MODULE__, method, url, payload, headers, options)
 
-      def gql(query, variables \\ nil), do: Sdk.BaseClient.gql(__MODULE__, query, variables)
+      def gql(query, variables \\ nil), do: SDK.BaseClient.gql(__MODULE__, query, variables)
 
       def handle_response(response, status),
-        do: Sdk.BaseClient.handle_response(response, status)
+        do: SDK.BaseClient.handle_response(response, status)
 
-      def config, do: Sdk.BaseClient.config(__MODULE__)
+      def config, do: SDK.BaseClient.config(__MODULE__)
 
-      def name, do: Sdk.BaseClient.name(__MODULE__)
+      def name, do: SDK.BaseClient.name(__MODULE__)
 
-      def prepare_headers(headers), do: Sdk.BaseClient.prepare_headers(headers)
-      def prepare_options(options), do: Sdk.BaseClient.prepare_options(options)
+      def prepare_headers(headers), do: SDK.BaseClient.prepare_headers(headers)
+      def prepare_options(options), do: SDK.BaseClient.prepare_options(options)
 
       def prepare_payload(payload, headers),
-        do: Sdk.BaseClient.prepare_payload(payload, headers)
+        do: SDK.BaseClient.prepare_payload(payload, headers)
 
       defoverridable prepare_headers: 1, handle_response: 2, prepare_options: 1
     end
@@ -52,7 +52,7 @@ defmodule Sdk.BaseClient do
 
   def prepare_url(module, url), do: config(module).base_url <> url
 
-  def method_missing(module, method_name, %Sdk.Request{
+  def method_missing(module, method_name, %SDK.Request{
         headers: headers,
         payload: payload,
         options: options
@@ -124,7 +124,7 @@ defmodule Sdk.BaseClient do
     Neuron.Config.set(connection_opts: [recv_timeout: @timeout, timeout: @timeout])
 
     case Neuron.query(query, variables) do
-      {:error, %Neuron.JSONParseError{response: {:error, %Neuron.Response{body: body}}}}->
+      {:error, %Neuron.JSONParseError{response: {:error, %Neuron.Response{body: body}}}} ->
         handle_error("query: #{query}, response: #{body}")
 
       {:error, resp} ->

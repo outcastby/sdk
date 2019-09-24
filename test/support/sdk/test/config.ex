@@ -1,4 +1,4 @@
-defmodule Sdk.Test.Config do
+defmodule SDK.Test.Config do
   def data,
     do: %{
       base_url: "http://test",
