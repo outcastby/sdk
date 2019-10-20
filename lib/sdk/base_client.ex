@@ -33,8 +33,8 @@ defmodule SDK.BaseClient do
 
       def gql(query, variables \\ nil), do: SDK.BaseClient.gql(__MODULE__, query, variables)
 
-      def handle_response(response, status),
-        do: SDK.BaseClient.handle_response(response, status)
+      def handle_response(response, status, only_result),
+        do: SDK.BaseClient.handle_response(response, status, only_result)
 
       def config, do: SDK.BaseClient.config(__MODULE__)
 
@@ -46,7 +46,7 @@ defmodule SDK.BaseClient do
       def prepare_payload(payload, headers),
         do: SDK.BaseClient.prepare_payload(payload, headers)
 
-      defoverridable prepare_headers: 1, handle_response: 2, prepare_options: 1
+      defoverridable prepare_headers: 1, handle_response: 3, prepare_options: 1
     end
   end
 
@@ -68,10 +68,11 @@ defmodule SDK.BaseClient do
   def call_missing(module, method_name, payload, headers, options) do
     %{endpoints: %{^method_name => %{url: url, type: type}}} = config(module)
     url = if is_binary(url), do: url, else: url.(options.url_params)
-    perform(module, type, url, payload, headers, options)
+    only_result = Regex.match?(~r/.*!$/, Atom.to_string(method_name))
+    perform(module, type, url, payload, headers, options, only_result)
   end
 
-  def perform(module, method, url, payload, headers, options) do
+  def perform(module, method, url, payload, headers, options, only_result \\ false) do
     headers = module.prepare_headers(headers)
     url = apply(module, :prepare_url, get_url_params(module, url, options))
     options = module.prepare_options(options)
@@ -89,7 +90,7 @@ defmodule SDK.BaseClient do
 
         cond do
           status_code >= 400 -> module.handle_response(body, :error)
-          true -> module.handle_response(body, :ok)
+          true -> module.handle_response(body, :ok, only_result)
         end
     end
   end
@@ -136,11 +137,18 @@ defmodule SDK.BaseClient do
     end
   end
 
-  def handle_response(response, status) do
+  def handle_response(response, :ok, true), do: decode_response(response)
+
+  def handle_response(response, status, _) do
+    response = decode_response(response)
+    {status, response}
+  end
+
+  def decode_response(response) do
     try do
-      {status, response |> Poison.decode!()}
+      response |> Poison.decode!()
     rescue
-      _ -> {status, response}
+      _ -> response
     end
   end
 
