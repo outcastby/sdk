@@ -14,6 +14,13 @@ defmodule SDK.BaseClient do
           {method_name, _} = __ENV__.function
           __MODULE__.method_missing(method_name, request)
         end
+
+        def unquote("#{event}!" |> String.to_atom())(request \\ nil) do
+          case apply(__MODULE__, unquote(event), [request]) do
+            {:ok, response} -> response
+            error -> error
+          end
+        end
       end)
 
       @doc """
@@ -33,8 +40,8 @@ defmodule SDK.BaseClient do
 
       def gql(query, variables \\ nil), do: SDK.BaseClient.gql(__MODULE__, query, variables)
 
-      def handle_response(response, status, only_result),
-        do: SDK.BaseClient.handle_response(response, status, only_result)
+      def handle_response(response, status),
+        do: SDK.BaseClient.handle_response(response, status)
 
       def config, do: SDK.BaseClient.config(__MODULE__)
 
@@ -46,7 +53,7 @@ defmodule SDK.BaseClient do
       def prepare_payload(payload, headers),
         do: SDK.BaseClient.prepare_payload(payload, headers)
 
-      defoverridable prepare_headers: 1, handle_response: 3, prepare_options: 1
+      defoverridable prepare_headers: 1, handle_response: 2, prepare_options: 1
     end
   end
 
@@ -66,13 +73,13 @@ defmodule SDK.BaseClient do
   Returns tuple of parameters.
   """
   def call_missing(module, method_name, payload, headers, options) do
+    method_name = method_name |> Atom.to_string() |> String.trim("!") |> String.to_atom()
     %{endpoints: %{^method_name => %{url: url, type: type}}} = config(module)
     url = if is_binary(url), do: url, else: url.(options.url_params)
-    only_result = Regex.match?(~r/.*!$/, Atom.to_string(method_name))
-    perform(module, type, url, payload, headers, options, only_result)
+    perform(module, type, url, payload, headers, options)
   end
 
-  def perform(module, method, url, payload, headers, options, only_result \\ false) do
+  def perform(module, method, url, payload, headers, options) do
     headers = module.prepare_headers(headers)
     url = apply(module, :prepare_url, get_url_params(module, url, options))
     options = module.prepare_options(options)
@@ -90,7 +97,7 @@ defmodule SDK.BaseClient do
 
         cond do
           status_code >= 400 -> module.handle_response(body, :error)
-          true -> module.handle_response(body, :ok, only_result)
+          true -> module.handle_response(body, :ok)
         end
     end
   end
@@ -137,18 +144,11 @@ defmodule SDK.BaseClient do
     end
   end
 
-  def handle_response(response, :ok, true), do: decode_response(response)
-
-  def handle_response(response, status, _) do
-    response = decode_response(response)
-    {status, response}
-  end
-
-  def decode_response(response) do
+  def handle_response(response, status) do
     try do
-      response |> Poison.decode!()
+      {status, response |> Poison.decode!()}
     rescue
-      _ -> response
+      _ -> {status, response}
     end
   end
 
