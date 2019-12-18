@@ -38,7 +38,7 @@ defmodule SDK.BaseClient do
       def perform(method, url, payload \\ %{}, headers \\ [], options \\ %{}),
         do: SDK.BaseClient.perform(__MODULE__, method, url, payload, headers, options)
 
-      def gql(query, variables \\ nil), do: SDK.BaseClient.gql(__MODULE__, query, variables)
+      def gql(query, variables \\ nil, headers \\ []), do: SDK.BaseClient.gql(__MODULE__, query, variables, headers)
 
       def handle_response(response, status),
         do: SDK.BaseClient.handle_response(response, status)
@@ -124,12 +124,13 @@ defmodule SDK.BaseClient do
   def prepare_options(options),
     do: %{recv_timeout: @timeout, timeout: @timeout} |> Map.merge(options) |> Enum.into([])
 
-  def gql(module, query, variables) do
+  def gql(module, query, variables, headers) do
     url = config(module).base_url <> config(module).gql_path
     Logger.metadata(sdk: name(module), url: url)
 
     Neuron.Config.set(url: url)
     Neuron.Config.set(connection_opts: [recv_timeout: @timeout, timeout: @timeout])
+    Neuron.Config.set(headers: headers)
 
     case Neuron.query(query, variables) do
       {:error, %Neuron.JSONParseError{response: {:error, %Neuron.Response{body: body}}}} ->
