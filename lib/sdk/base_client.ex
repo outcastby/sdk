@@ -175,5 +175,9 @@ defmodule SDK.BaseClient do
       when content_type == "application/x-www-form-urlencoded",
       do: {:form, Enum.to_list(payload)}
 
+  def prepare_payload(payload, [{_, content_type} | _])
+      when content_type == "multipart/form-data",
+      do: payload
+
   def prepare_payload(payload, _), do: Poison.encode!(payload)
 end
